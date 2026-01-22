@@ -1,0 +1,20 @@
+{
+  "name": "yellow-sample",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run ./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@erc7824/nitrolite": "^0.5.3",
+    "@types/ws": "^8.18.1",
+    "ethers": "^6.16.0",
+    "ws": "^8.19.0"
+  }
+}
