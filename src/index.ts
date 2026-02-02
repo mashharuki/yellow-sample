@@ -9,9 +9,9 @@
  */
 
 import {
+  createAppSessionMessage,
   createAuthRequestMessage,
   createAuthVerifyMessage,
-  createECDSAMessageSigner,
   createGetChannelsMessageV2,
   createGetLedgerBalancesMessage,
   parseAnyRPCResponse,
@@ -25,6 +25,17 @@ import WebSocket from 'ws';
 const CLEARNODE_URL = process.env.CLEARNODE_URL || 'wss://clearnet.yellow.com/ws';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const APPLICATION_NAME = process.env.APPLICATION_NAME || 'yellow-quickstart';
+const APP_PARTICIPANT_B = process.env.APP_PARTICIPANT_B;
+const APP_SESSION_ASSET = process.env.APP_SESSION_ASSET || 'usdc';
+const APP_SESSION_AMOUNT = process.env.APP_SESSION_AMOUNT || '0';
+
+let pendingAppSession:
+  | {
+      resolve: (appSessionId: string) => void;
+      reject: (error: Error) => void;
+      timeoutId: ReturnType<typeof setTimeout>;
+    }
+  | null = null;
 
 // Validate configuration
 if (!PRIVATE_KEY) {
@@ -41,8 +52,14 @@ try {
   const privateKey = PRIVATE_KEY.startsWith('0x') ? PRIVATE_KEY : `0x${PRIVATE_KEY}`;
 
   wallet = new ethers.Wallet(privateKey);
-  // Create ECDSA message signer from private key
-  messageSigner = createECDSAMessageSigner(privateKey as `0x${string}`);
+  // Create ECDSA message signer from private key (Nitrolite RPC format)
+  messageSigner = async (payload) => {
+    const message = JSON.stringify(payload);
+    const digestHex = ethers.id(message);
+    const messageBytes = ethers.getBytes(digestHex);
+    const { serialized: signature } = wallet.signingKey.sign(messageBytes);
+    return signature;
+  };
   console.log('✅ Wallet initialized');
   console.log('📍 Address:', wallet.address);
 } catch (error) {
@@ -81,7 +98,7 @@ async function main() {
     try {
       // Step 1: Send authentication request
       console.log('\n🔐 Starting authentication...');
-
+      // Create auth request message
       const authRequest = await createAuthRequestMessage({
         address: wallet.address as `0x${string}`,
         session_key: wallet.address as `0x${string}`,
@@ -103,6 +120,15 @@ async function main() {
   ws.on('message', async (data) => {
     try {
       const rawData = typeof data === 'string' ? data : data.toString();
+      const parsedJson = safeJsonParse(rawData);
+
+      if (parsedJson && (parsedJson.res || parsedJson.err)) {
+        const handled = handleAppSessionResponse(parsedJson);
+        if (handled) {
+          return;
+        }
+      }
+
       const message = parseAnyRPCResponse(rawData);
 
       console.log('📨 Received:', message.method);
@@ -140,6 +166,23 @@ async function main() {
 
             // Now that we're authenticated, get channels
             getChannels(ws);
+
+            // Optional: create application session sample
+            if (APP_PARTICIPANT_B) {
+              try {
+                const appSessionId = await createApplicationSession(
+                  ws,
+                  APP_PARTICIPANT_B as `0x${string}`,
+                  APP_SESSION_ASSET,
+                  APP_SESSION_AMOUNT
+                );
+                console.log('🧩 App session created:', appSessionId);
+              } catch (error) {
+                console.error('❌ App session creation failed:', error);
+              }
+            } else {
+              console.log('ℹ️  APP_PARTICIPANT_B not set. Skipping app session sample.');
+            }
           } else {
             console.error('❌ Authentication failed');
             ws.close();
@@ -218,6 +261,41 @@ async function main() {
 
     process.exit(isAuthenticated ? 0 : 1);
   });
+
+  function handleAppSessionResponse(message: any): boolean {
+    if (!pendingAppSession) {
+      return false;
+    }
+
+    if (message.res && (message.res[1] === 'create_app_session' || message.res[1] === 'app_session_created')) {
+      clearTimeout(pendingAppSession.timeoutId);
+      const appSessionId = message.res[2]?.[0]?.app_session_id;
+      if (!appSessionId) {
+        pendingAppSession.reject(new Error('Failed to get app session ID from response'));
+      } else {
+        pendingAppSession.resolve(appSessionId);
+      }
+      pendingAppSession = null;
+      return true;
+    }
+
+    if (message.err) {
+      clearTimeout(pendingAppSession.timeoutId);
+      pendingAppSession.reject(new Error(`Error ${message.err[1]}: ${message.err[2]}`));
+      pendingAppSession = null;
+      return true;
+    }
+
+    return false;
+  }
+}
+
+function safeJsonParse(value: string): any | null {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 // Helper function to get channels
@@ -249,6 +327,62 @@ async function getBalances(ws: WebSocket, participant: `0x${string}`) {
     console.error('❌ Error getting balances:', error);
     ws.close();
   }
+}
+
+// Create application session sample (optional)
+async function createApplicationSession(
+  ws: WebSocket,
+  participantB: `0x${string}`,
+  asset: string,
+  amount: string
+): Promise<string> {
+  console.log('\n🧩 Creating application session...');
+
+  const appDefinition = {
+    protocol: 'app_nitrolite_v0',
+    participants: [wallet.address as `0x${string}`, participantB],
+    weights: [0, 0],
+    quorum: 100,
+    challenge: 0,
+    nonce: Date.now(),
+  };
+
+  const allocations = [
+    {
+      participant: wallet.address as `0x${string}`,
+      asset,
+      amount,
+    },
+    {
+      participant: participantB,
+      asset,
+      amount: '0',
+    },
+  ];
+
+  const signedMessage = await createAppSessionMessage(messageSigner, [
+    {
+      definition: appDefinition,
+      allocations,
+    },
+  ]);
+
+  return new Promise((resolve, reject) => {
+    if (pendingAppSession) {
+      reject(new Error('Another app session request is in progress'));
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (pendingAppSession) {
+        pendingAppSession.reject(new Error('App session creation timeout'));
+        pendingAppSession = null;
+      }
+    }, 10000);
+
+    pendingAppSession = { resolve, reject, timeoutId };
+    ws.send(signedMessage);
+  });
 }
 
 // Graceful shutdown
