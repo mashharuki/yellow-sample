@@ -338,5 +338,203 @@ bun run sample
 }
 ```
 
+### テスト用のトークンを取得するコマンド
+
+```bash
+curl -XPOST https://clearnet-sandbox.yellow.com/faucet/requestTokens \
+  -H "Content-Type: application/json" \
+  -d '{"userAddress":"0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072"}'
+```
+
+以下のようになればOK!
+
+```json
+{"success":true,"message":"Tokens sent successfully","txId":"14765","amount":"10000000","asset":"ytest.usd","destination":"0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072"}
+```
+
+### デモ用のコード
+
+```bash
+bun run demo
+```
+
+以下のようになればOK!
+
+```bash
+$ bun run ./src/demo.ts
+✓ Wallet loaded: 0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072
+✓ Sent auth request from 0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072 to 0xec068B1Ae32Ab956842cE6B34BAb5009196c06c9
+✓ Sent create channel request for ytest.usd on Sepolia
+Message type: assets
+Message type: auth_challenge
+✓ Received auth challenge: c0a1c468-45bb-466c-9f8b-25598b640cac
+Message type: get_config
+Supported chains: undefined
+Contract addresses: undefined
+Message type: auth_challenge
+✓ Received auth challenge: 42bc5595-349f-446d-b855-57ce7ab87ca6
+Message type: error
+Message type: auth_verify
+✓ Authenticated successfully
+  Session key: 0xec068B1Ae32Ab956842cE6B34BAb5009196c06c9
+  JWT token received
+Sent get_ledger_balances request...
+Message type: channels
+  No existing open channel found, creating new one...
+  Using token: 0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb for chain: 11155111
+Message type: bu
+Message type: auth_verify
+✓ Authenticated successfully
+  Session key: 0xec068B1Ae32Ab956842cE6B34BAb5009196c06c9
+  JWT token received
+Sent get_ledger_balances request...
+Message type: get_ledger_balances
+Message type: create_channel
+✓ Channel prepared: 0x36b12211fe9784e4894f4a371352816c96286888ecf7d75eb25294e5a4c515ff
+  State object: {
+  "intent": 1,
+  "version": 0,
+  "state_data": "0x",
+  "allocations": [
+    {
+      "destination": "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+      "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+      "amount": "0"
+    },
+    {
+      "destination": "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC",
+      "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+      "amount": "0"
+    }
+  ]
+}
+Message type: get_ledger_balances
+✓ Channel created on-chain: 0x2b09a64a322398b1b597c635e414b23f61e13f323c13de1dffc9593e17da1cea
+  Waiting for transaction confirmation...
+Message type: cu
+Message type: bu
+✓ Transaction confirmed
+  Using existing channel: 0x36b12211fe9784e4894f4a371352816c96286888ecf7d75eb25294e5a4c515ff
+  Waiting 5s for Node to index channel...
+
+Requesting resize to fund channel with 20 tokens...
+  Waiting for resize confirmation...
+Message type: resize_channel
+✓ Resize prepared
+  Server returned allocations: [
+  {
+    "destination": "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+    "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+    "amount": "20"
+  },
+  {
+    "destination": "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC",
+    "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+    "amount": "0"
+  }
+]
+DEBUG: resizeState: {
+  "intent": 2,
+  "version": "1",
+  "data": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014",
+  "allocations": [
+    {
+      "destination": "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+      "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+      "amount": "20"
+    },
+    {
+      "destination": "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC",
+      "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+      "amount": "0"
+    }
+  ],
+  "channelId": "0x36b12211fe9784e4894f4a371352816c96286888ecf7d75eb25294e5a4c515ff",
+  "serverSignature": "0x026675ce5e93feaabc83d6ab710b0d75b672f6d9ce5aef398f92d52b3ec3d3fa73d52d932a91f5b4f36917729694882b51f0c7a6d645aa8bd648bd6bfd5fdd971b"
+}
+DEBUG: On-chain channel data: {
+  "channel": {
+    "participants": [
+      "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+      "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC"
+    ],
+    "adjudicator": "0x7c7ccbc98469190849BCC6c926307794fDfB11F2",
+    "challenge": "3600",
+    "nonce": "1770119739560"
+  },
+  "status": 2,
+  "wallets": [
+    "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+    "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC"
+  ],
+  "challengeExpiry": "0",
+  "lastValidState": {
+    "intent": 1,
+    "version": "0",
+    "data": "0x",
+    "allocations": [
+      {
+        "destination": "0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072",
+        "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+        "amount": "0"
+      },
+      {
+        "destination": "0xc7E6827ad9DA2c89188fAEd836F9285E6bFdCCCC",
+        "token": "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb",
+        "amount": "0"
+      }
+    ],
+    "sigs": [
+      "0x39f5012392a33cf4861a96f934200d43e906985f97a9a4d37e2023cbdf89d39d4a789717e4c5d24ec552ad79538f3b3c16a1b9377bc0737576098f86ee7ec0381b",
+      "0xffa168f7803bfcc4ac56c6fc8bd77833f146dabdf0ef8493a13749adf84f17e46841cc01a1de6bccc863abe6df69df00dede9973e46c4d27aa75497be533fe021c"
+    ]
+  }
+}
+  Waiting for channel funding (Required: 20)...
+  Checking User Custody Balance for 0x51908F598A5e0d8F1A3bAbFa6DF76F9704daD072... [v2]
+  Skipping L1 deposit (using off-chain faucet funds)...
+✓ User funded in Custody (Balance: 32)
+  Submitting resize to chain...
+✓ Channel resized on-chain: 0x085e04365026553af642f743bce3ff4a4fb350976167f26a371fb2d7b0087c5a
+✓ Channel funded with 20 USDC
+  Skipping transfer to verify withdrawal amount...
+  Debug: channel_id = 0x36b12211fe9784e4894f4a371352816c96286888ecf7d75eb25294e5a4c515ff
+✓ Resize complete.
+✓ Channel funded with 0 USDC
+✓ User Custody Balance after resize: 32
+
+  Closing channel...
+✓ Sent close channel request
+Message type: close_channel
+✓ Close prepared
+  Submitting close to chain...
+✓ Channel closed on-chain: 0x75e59dbc841def60fb9ce69b541994bac4f8dfcb79f1e295b73e1f95bbc1c49e
+  Waiting for close transaction confirmation...
+  Closing channel: 0x36b12211fe9784e4894f4a371352816c96286888ecf7d75eb25294e5a4c515ff
+Message type: close_channel
+✓ Close prepared
+  Submitting close to chain...
+✓ Channel closed on-chain: 0x5289e2e0f466344154dcda14971521a0b099e8f1ef12d0aca61099bd12535eb0
+  Waiting for close transaction confirmation...
+Message type: bu
+Message type: cu
+✓ Close transaction confirmed
+  Withdrawing funds...
+✓ Close transaction confirmed
+  Withdrawing funds...
+✓ User Custody Balance (Withdrawable): 32
+  Attempting to withdraw 32 of 0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb...
+✓ User Custody Balance (Withdrawable): 32
+  Attempting to withdraw 32 of 0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb...
+⚠ Withdrawal failed: Contract call simulation failed for function 'Failed to execute withdrawDeposit on contract'
+This may happen if the channel state hasn't fully settled on-chain yet.
+
+✓ Channel operations completed successfully (create → resize → close)
+  Note: Withdrawal can be performed manually later when the state settles.
+
+✓ Demo completed successfully!
+```
+
 ## 参考文献
-- [雛形生成アプリ](https://github.com/Yellow-Scafolding/scaffolding/tree/main)
+- [雛形生成アプリ(バグあり)](https://github.com/Yellow-Scafolding/scaffolding/tree/main)
+- [Yellow Getting Started](https://docs.yellow.org/docs/learn/getting-started/prerequisites)
