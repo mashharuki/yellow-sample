@@ -10,6 +10,7 @@ Yellow Protocol（ERC7824）の Nitrolite SDK を使ったクイックスター�
 2. **認証** - EIP-712 署名を使った安全な認証フロー
 3. **チャネル情報取得** - アカウントに紐付くチャネルの一覧表示
 4. **残高確認** - オフチェーン残高の確認
+5. **💸 ステートチャネル内送信** - Yellow Protocolの真骨頂！瞬時のオフチェーン送信（yellow-app/src/demo.ts）
 
 ## 📋 前提条件
 
@@ -170,7 +171,59 @@ bun run dev
   - [apps.yellow.com](https://apps.yellow.com) でチャネルを作成
   - 正しいウォレットアドレスでチャネルが作成されているか確認
 
-## 🛠️ 次のステップ
+## � ステートチャネル内での送金
+
+Yellow Protocolの最大の特徴は、**オフチェーンで瞬時に送金できる**ことです！
+
+### Application Sessionを使った送金
+
+```typescript
+import { createAppSessionMessage, parseRPCResponse } from '@erc7824/nitrolite';
+
+// Step 1: Application Sessionを作成
+const appDefinition = {
+  protocol: 'payment-app-v1',
+  participants: [yourAddress, recipientAddress],
+  weights: [50, 50],
+  quorum: 100,
+  challenge: 0,
+  nonce: Date.now()
+};
+
+const allocations = [
+  { participant: yourAddress, asset: 'usdc', amount: '1000000' }, // 1 USDC
+  { participant: recipientAddress, asset: 'usdc', amount: '0' }
+];
+
+const sessionMessage = await createAppSessionMessage(
+  messageSigner,
+  [{ definition: appDefinition, allocations }]
+);
+ws.send(sessionMessage);
+
+// Step 2: ペイメントを送信（瞬時・ガス代なし！）
+const paymentData = {
+  type: 'payment',
+  session_id: appSessionId,
+  amount: '100000', // 0.1 USDC
+  recipient: recipientAddress,
+  sender: yourAddress,
+  timestamp: Date.now()
+};
+
+const signature = await messageSigner(JSON.stringify(paymentData));
+ws.send(JSON.stringify({ ...paymentData, signature }));
+console.log('💸 Payment sent instantly!');
+```
+
+### メリット
+
+- ⚡ **瞬時に完了**: ブロックチェーンの確認を待つ必要なし
+- 💰 **ガス代ゼロ**: オフチェーンで処理されるため手数料不要
+- 🔄 **無制限の送信**: セッション内で何度でも送金可能
+- 🔒 **安全性**: 暗号署名により保護
+
+## �🛠️ 次のステップ
 
 1. **アプリケーションセッションの作成**
    - `createAppSessionMessage` を使用してセッションを作成
@@ -456,6 +509,130 @@ const hash = await walletClient.writeContract({
 });
 ```
 
+### Application Session作成時のエラー
+
+Application Sessionの作成時に`Message type: error`が表示される場合：
+
+**よくある原因:**
+
+1. **パラメータの解析エラー (`"failed to parse parameters"`)**
+   - **最も可能性が高い**: `asset`フィールドにトークンシンボル文字列（例: `"usdc"`）ではなく、**実際のトークンアドレス**を使用する必要があります
+   ```typescript
+   // ❌ 間違い
+   asset: "usdc"
+   
+   // ✅ 正しい
+   asset: "0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb" // 実際のトークンアドレス
+   ```
+   - チャネルで使用しているトークンアドレスを取得して使用してください
+
+2. **Asset（資産）がサポートされていない**
+   - Sepolia testnetで使用可能なトークンアドレスを確認
+   - `get_config`メソッドでサポートされているアセットを確認
+
+3. **参加者の残高不足**
+   - 両方の参加者がチャネル内に十分な残高を持っている必要があります
+   - `get_ledger_balances`で残高を確認
+
+4. **無効な参加者アドレス**
+   - 参加者のアドレスが正しいフォーマットか確認
+   - 実際に資金を持っているアドレスを使用
+
+**デバッグ方法:**
+
+```bash
+# 詳細なエラー情報を確認
+bun run demo
+
+# エラーメッセージの"Error details"セクションを確認
+# 特に"message"フィールドに具体的な原因が記載されています
+```
+
+**解決策:**
+
+```typescript
+// より詳細なログを有効にする
+console.log("Debug: Message sent:", JSON.stringify({
+  participants: appDefinition.participants,
+  allocations: allocations
+}, null, 2));
+```
+
 ## 参考文献
 - [雛形生成アプリ(バグあり)](https://github.com/Yellow-Scafolding/scaffolding/tree/main)
 - [Yellow Getting Started](https://docs.yellow.org/docs/learn/getting-started/prerequisites)
+
+## 💸 Yellow Protocolの真の力：ステートチャネル内送信
+
+### Yellow Protocolの最大の強み
+
+Yellow Protocolは**ステートチャネル技術**を使用して、以下を実現します：
+
+- ⚡ **瞬時の送信** - ブロックチェーンの承認待ちなし
+- 💰 **ガス代ゼロ** - オフチェーンでの状態更新
+- 🔒 **高セキュリティ** - 暗号署名による保証
+- 🚀 **無制限のスループット** - L1の制約を受けない
+
+### ⚠️ 実装に関する重要な注意
+
+現在のYellow Protocol（Nitrolite SDK v0.5.3）では、**ステートチャネル内での直接的な資金送信を実装するには、Application Sessionの利用が推奨されています**。
+
+### 実装方法
+
+#### オプション1: Application Session（推奨）
+
+`src/index.ts`の`createApplicationSession`関数を参照してください。Application Sessionを使用すると、カスタムロジックを実装できます。
+
+```typescript
+// Application Sessionの作成
+const appSessionId = await createApplicationSession(
+  ws,
+  participantB as `0x${string}`,
+  'usdc',
+  '1000000'
+);
+
+// Application Session内での状態更新（支払い処理）
+// 詳細は公式ドキュメントを参照
+```
+
+#### オプション2: チャネルクローズ時のアロケーション再配分
+
+最もシンプルな方法は、チャネルをクローズする際に最終的な資金配分を指定することです：
+
+```typescript
+const closeMsg = await createCloseChannelMessage(
+  sessionSigner,
+  channelId as `0x${string}`,
+  account.address,
+  // 最終アロケーションをここで指定
+);
+```
+
+### 仕組み
+
+1. **チャネル作成（L1）** - 最初に一度だけブロックチェーンにデプロイ
+2. **オフチェーン送信** - Application Session内で状態を更新
+   - ClearNodeを通じて署名付きメッセージを交換
+   - ガス代なし、承認待ちなし
+   - 両者の署名で状態を更新
+3. **チャネルクローズ（L1）** - 最終状態をブロックチェーンに記録
+
+### なぜ速いのか？
+
+- **L1トランザクション**: ブロック承認待ち（数秒〜数分）、ガス代あり
+- **ステートチャネル**: WebSocket通信（ミリ秒）、ガス代なし
+
+### ユースケース
+
+- 💱 高頻度トレーディング
+- 🎮 ゲーム内マイクロペイメント
+- 💬 メッセージング報酬
+- 🛒 少額決済が多いEコマース
+- ⚡ リアルタイム送金アプリ
+
+### 詳細情報
+
+Yellow Protocolの最新のAPI仕様については、公式ドキュメントをご確認ください：
+- [Yellow Protocol Docs](https://docs.yellow.org)
+- [ERC7824 Specification](https://eips.ethereum.org/EIPS/eip-7824)

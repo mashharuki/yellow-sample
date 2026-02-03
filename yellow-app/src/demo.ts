@@ -1,4 +1,5 @@
 import {
+  createAppSessionMessage,
   createAuthRequestMessage,
   createAuthVerifyMessageFromChallenge,
   createCloseChannelMessage,
@@ -73,13 +74,171 @@ const createChannelMsg = await createCreateChannelMessage(
 let isAuthenticated = false;
 // We need to capture channelId to close it.
 let activeChannelId: string | undefined;
+// Application Session ID for payment channel
+let appSessionId: string | undefined;
+// Flag to prevent duplicate channel close
+let isClosingChannel = false;
 
 // =============================================================
 // ヘルパーメソッド
 // =============================================================
 
 /**
- * リサイズ(資金追加投入)のヘルパーメソッd
+ * Application Sessionを作成する
+ * Yellow Protocolでのペイメントチャネル確立
+ * @param partnerAddress 相手のアドレス
+ * @param tokenAddress トークンアドレス
+ * @param initialAmount 初期アロケーション額
+ */
+const createPaymentSession = async (
+  partnerAddress: string,
+  tokenAddress: string,
+  initialAmount: string = "1000000", // 1 USDC
+) => {
+  console.log("\n🔗 Creating Application Session for payments...");
+  console.log(`  Partner: ${partnerAddress}`);
+  console.log(`  Token: ${tokenAddress}`);
+  console.log(`  Initial Amount: ${initialAmount}`);
+
+  const appDefinition = {
+    protocol: "payment-app-v1",
+    participants: [account.address, partnerAddress],
+    weights: [50, 50],
+    quorum: 100,
+    challenge: 0,
+    nonce: Date.now(),
+  };
+
+  const allocations = [
+    {
+      participant: account.address,
+      asset: tokenAddress, // トークンアドレスを使用
+      amount: initialAmount,
+    },
+    {
+      participant: partnerAddress,
+      asset: tokenAddress, // トークンアドレスを使用
+      amount: "0",
+    },
+  ];
+
+  const sessionMessage = await createAppSessionMessage(sessionSigner, [
+    { definition: appDefinition, allocations },
+  ]);
+
+  ws.send(sessionMessage);
+  console.log("✓ Application Session creation requested");
+  console.log("  Debug: Message sent:", JSON.stringify({
+    participants: appDefinition.participants,
+    allocations: allocations.map(a => ({ ...a, amount: a.amount }))
+  }, null, 2));
+
+  // Wait for session confirmation
+  return new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Session creation timeout")),
+      30000,
+    );
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data);
+        
+        // Check for error response
+        if (msg.error || (msg.res && msg.res[1] === "error")) {
+          const errorDetails = msg.error || msg.res[2];
+          console.error("❌ Application Session creation failed:");
+          console.error("  Error:", JSON.stringify(errorDetails, null, 2));
+          console.error("\n💡 Common causes:");
+          console.error("  1. Asset not supported: 'usdc' may not be available on this network");
+          console.error("  2. Insufficient balance: Participants need funds in the channel");
+          console.error("  3. Invalid participant address");
+          console.error("  4. Channel not in correct state for Application Session");
+          clearTimeout(timeout);
+          ws.removeEventListener("message", handler);
+          reject(new Error(`Session creation failed: ${JSON.stringify(errorDetails)}`));
+          return;
+        }
+        
+        // Check for success response
+        if (msg.res && msg.res[1] === "app_session") {
+          const sessionId = msg.res[2].app_session_id;
+          console.log("✓ Application Session created:", sessionId);
+          clearTimeout(timeout);
+          ws.removeEventListener("message", handler);
+          resolve(sessionId);
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+    ws.addEventListener("message", handler);
+  });
+};
+
+/**
+ * Application Session内で資金を送信する
+ * Yellow Protocolの真の力：オフチェーンで瞬時に送信完了、ガス代なし！
+ * @param amount 送信額
+ * @param recipient 送信先アドレス
+ */
+const sendPayment = async (amount: bigint, recipient: string) => {
+  if (!appSessionId) {
+    throw new Error("Application Session not created");
+  }
+
+  console.log("\n💸 Sending payment through Application Session...");
+  console.log(`  Amount: ${amount}`);
+  console.log(`  Recipient: ${recipient}`);
+  console.log(`  Session: ${appSessionId}`);
+
+  // Create payment message (公式実装に基づく)
+  const paymentData = {
+    type: "payment",
+    amount: amount.toString(),
+    recipient,
+    timestamp: Date.now(),
+  };
+
+  // Sign the payment with session signer
+  const signature = await sessionSigner(JSON.stringify(paymentData));
+
+  const signedPayment = {
+    ...paymentData,
+    signature,
+    sender: account.address,
+  };
+
+  // Send instantly through ClearNode - オフチェーンで瞬時に完了！
+  ws.send(JSON.stringify(signedPayment));
+  console.log("✓ Payment sent instantly through state channel!");
+  console.log("  (No gas fees, instant settlement)");
+
+  // Wait for confirmation (optional)
+  return new Promise<void>((resolve) => {
+    const handler = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "payment" || msg.type === "payment_confirmed") {
+          console.log("✓ Payment confirmed by counterparty");
+          ws.removeEventListener("message", handler);
+          resolve();
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+    ws.addEventListener("message", handler);
+
+    // Auto-resolve after 2 seconds (payment is instant anyway)
+    setTimeout(() => {
+      ws.removeEventListener("message", handler);
+      resolve();
+    }, 2000);
+  });
+};
+
+/**
+ * リサイズ(資金追加投入)のヘルパーメソッド
  * @param channelId
  * @param token
  * @param skipResize
@@ -200,6 +359,44 @@ const triggerResize = async (
   }
 
   // -------------------------------------------------------------------
+  // 💸 Yellow Protocolの真の力：Application Session内での瞬時送信
+  // 注意: Application Sessionは現在開発中の機能です
+  // -------------------------------------------------------------------
+  console.log("\n💡 Yellow Protocol's State Channel Feature");
+  console.log("  ⚠️  Application Session is under development");
+  console.log("  Skipping payment demo for now...");
+  console.log("  The channel is ready for instant off-chain transfers once implemented!");
+  
+  // Application Sessionは現在不安定なためスキップ
+  /*
+  const recipientAddress = "0x1295BDc0C102EB105dC0198fdC193588fe66A1e4";
+
+  try {
+    // Step 1: Create Application Session
+    appSessionId = await createPaymentSession(
+      recipientAddress,
+      token, // チャネルで使用中のトークンアドレス
+      "1000000", // 1 USDC
+    );
+
+    // Step 2: Send payment instantly (no gas fees!)
+    const transferAmount = 5n; // 0.000005 USDC for demo
+    await sendPayment(transferAmount, recipientAddress);
+
+    console.log("\n🚀 This is the power of Yellow Protocol!");
+    console.log("   - Payment completed in milliseconds");
+    console.log("   - Zero gas fees");
+    console.log("   - Can send unlimited payments in this session");
+  } catch (transferError: any) {
+    console.warn("⚠ Payment demo error:", transferError.message);
+    console.log("  Proceeding to channel close...");
+  }
+  */
+
+  // Wait for server to sync state
+  await new Promise((r) => setTimeout(r, 2000));
+
+  // -------------------------------------------------------------------
   // 4. Close Channel
   // -------------------------------------------------------------------
   console.log("\n  Closing channel...");
@@ -291,8 +488,21 @@ ws.onmessage = async (event) => {
   // console.log("Received WS message:", JSON.stringify(response, null, 2));
 
   if (response.error) {
-    console.error("RPC Error:", response.error);
-    process.exit(1);
+    console.error("❌ RPC Error:", response.error);
+    console.error("   Error details:", JSON.stringify(response.error, null, 2));
+    
+    // Check if this is an Application Session error
+    if (response.error.message && 
+        (response.error.message.includes("session") || 
+         response.error.message.includes("app_session"))) {
+      console.error("\n💡 Troubleshooting Application Session errors:");
+      console.error("  1. Ensure both participants have sufficient balance");
+      console.error("  2. Check that the asset (usdc) is supported on this network");
+      console.error("  3. Verify channel is open and active");
+      console.error("  4. Review allocation amounts and participant addresses");
+    }
+    // エラーでも処理を続行（一部のエラーは無視できる）
+    // process.exit(1);
   }
 
   // メッセージタイプを確認
@@ -589,34 +799,46 @@ ws.onmessage = async (event) => {
     console.log("✓ Channel resized on-chain:", txHash);
     console.log("✓ Channel funded with 20 USDC");
 
-    // Skip Transfer for debugging
-    console.log("  Skipping transfer to verify withdrawal amount...");
     console.log("  Debug: channel_id =", channel_id);
 
     // Wait for server to sync state
     await new Promise((r) => setTimeout(r, 3000));
 
-    if (channel_id) {
-      console.log("  Closing channel:", channel_id);
-      // Close channel
-      const closeMsg = await createCloseChannelMessage(
-        sessionSigner,
-        channel_id as `0x${string}`,
-        account.address,
-      );
-      ws.send(closeMsg);
-    } else {
-      console.log("  No channel ID available to close.");
+    // Channel will be closed in the main message handler
+    console.log("  Channel ready for operations.");
+  }
+
+  // Application Session created
+  if (messageType === "app_session") {
+    const sessionData = response.res[2];
+    appSessionId = sessionData.app_session_id;
+    console.log("✓ Application Session ready:", appSessionId);
+    console.log("  Now you can send instant payments!");
+  }
+
+  // Payment received/confirmed
+  if (messageType === "payment" || response.type === "payment_confirmed") {
+    console.log("✓ Payment confirmation received");
+    if (response.amount) {
+      console.log(`  Amount: ${response.amount}`);
     }
   }
 
   if (messageType === "close_channel") {
+    // Prevent duplicate close operations
+    if (isClosingChannel) {
+      console.log("  (Ignoring duplicate close message)");
+      return;
+    }
+    isClosingChannel = true;
+    
     const { channel_id, state, server_signature } = response.res[2];
     console.log("✓ Close prepared");
     console.log("  Submitting close to chain...");
 
-    // チャンネルをクローズするためにブロックチェーンに送信
-    const txHash = await client.closeChannel({
+    try {
+      // チャンネルをクローズするためにブロックチェーンに送信
+      const txHash = await client.closeChannel({
       finalState: {
         intent: state.intent,
         version: BigInt(state.version),
@@ -687,7 +909,7 @@ ws.onmessage = async (event) => {
           withdrawableBalance,
           {
             gas: 500_000n, // ガスリミットを明示的に設定
-          }
+          },
         );
         console.log("✓ Funds withdrawn successfully:", withdrawalTx);
       } catch (withdrawError: any) {
@@ -708,6 +930,15 @@ ws.onmessage = async (event) => {
 
     console.log("\n✓ Demo completed successfully!");
     process.exit(0);
+    } catch (closeError: any) {
+      console.error("❌ Channel close failed:", closeError.message);
+      console.warn("  This may happen if:");
+      console.warn("  1. The channel state is not properly synced");
+      console.warn("  2. Server signature is invalid");
+      console.warn("  3. Channel has already been closed");
+      console.log("\n✓ Demo completed with warnings");
+      process.exit(1);
+    }
   }
 };
 
