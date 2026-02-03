@@ -203,5 +203,140 @@ bun run dev
 
 このサンプルコードは自由に使用できます。
 
+## 動かした記録
+
+### サンプルコード
+
+```bash
+bun run sample
+```
+
+```json
+{
+  res: [ 0, "assets", {
+      assets: [
+        {
+          token: "0x45268ba6c9A0459Eda6F6fAb4E5083c61730F375",
+          chain_id: 137,
+          symbol: "beatwav",
+          decimals: 6,
+        }, {
+          token: "0xDB33fEC4e2994a675133320867a6439Da4A5acD8",
+          chain_id: 1,
+          symbol: "beatwav",
+          decimals: 18,
+        }, {
+          token: "0x0000000000000000000000000000000000000000",
+          chain_id: 56,
+          symbol: "bnb",
+          decimals: 18,
+        }, {
+          token: "0x0000000000000000000000000000000000000000",
+          chain_id: 8453,
+          symbol: "eth",
+          decimals: 18,
+        }, {
+          token: "0x0000000000000000000000000000000000000000",
+          chain_id: 59144,
+          symbol: "eth",
+          decimals: 18,
+        }, {
+          token: "0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD",
+          chain_id: 56,
+          symbol: "link",
+          decimals: 18,
+        }, {
+          token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          chain_id: 1,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0xFbDa5F676cB37624f28265A144A48B0d6e87d3b6",
+          chain_id: 14,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          chain_id: 56,
+          symbol: "usdc",
+          decimals: 18,
+        }, {
+          token: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          chain_id: 137,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
+          chain_id: 480,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x3A15461d8AE0f0Fb5fA2629e9dA7D66A794a6E37",
+          chain_id: 30,
+          symbol: "usdc",
+          decimals: 18,
+        }, {
+          token: "0x2aaBea2058b5aC2D339b163C6Ab6f2b6d53aabED",
+          chain_id: 747,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x0b7007c13325c48911f73a2dad5fa5dcbf808adc",
+          chain_id: 2020,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          chain_id: 8453,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+          chain_id: 59144,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0xa16148c6Ac9EDe0D82f0c52899e22a575284f131",
+          chain_id: 1440000,
+          symbol: "usdc",
+          decimals: 6,
+        }, {
+          token: "0x55d398326f99059fF775485246999027B3197955",
+          chain_id: 56,
+          symbol: "usdt",
+          decimals: 18,
+        }, {
+          token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+          chain_id: 8453,
+          symbol: "usdt",
+          decimals: 6,
+        }, {
+          token: "0xA219439258ca9da29E9Cc4cE5596924745e12B93",
+          chain_id: 59144,
+          symbol: "usdt",
+          decimals: 6,
+        }, {
+          token: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+          chain_id: 56,
+          symbol: "weth",
+          decimals: 18,
+        }, {
+          token: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+          chain_id: 137,
+          symbol: "weth",
+          decimals: 18,
+        }, {
+          token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+          chain_id: 1440000,
+          symbol: "xrp",
+          decimals: 18,
+        }
+      ],
+    }, 1770089998926 ],
+  sig: [ "0xbc3596c232c2b1f2da7740a4aa874f1c95f72745db665b7fb695f72a3113d7ae6b42647f4bbf43e708cd17abed6eac38a5017069677783636d1c50c61e64a18c1c"
+  ],
+}
+```
+
 ## 参考文献
 - [雛形生成アプリ](https://github.com/Yellow-Scafolding/scaffolding/tree/main)
