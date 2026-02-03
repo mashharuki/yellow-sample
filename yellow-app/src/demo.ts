@@ -126,12 +126,21 @@ const createPaymentSession = async (
     { definition: appDefinition, allocations },
   ]);
 
+  console.log("✓ Application Session message created");
+  console.log("  Debug: Full message structure:");
+  console.log("  Definition:", JSON.stringify(appDefinition, null, 2));
+  console.log("  Allocations:", JSON.stringify(allocations, null, 2));
+  
+  // Parse the message to see what's actually being sent
+  try {
+    const parsedMessage = JSON.parse(sessionMessage);
+    console.log("  Parsed RPC message:", JSON.stringify(parsedMessage, null, 2));
+  } catch (e) {
+    console.log("  (Message is not JSON, sending as-is)");
+  }
+
   ws.send(sessionMessage);
   console.log("✓ Application Session creation requested");
-  console.log("  Debug: Message sent:", JSON.stringify({
-    participants: appDefinition.participants,
-    allocations: allocations.map(a => ({ ...a, amount: a.amount }))
-  }, null, 2));
 
   // Wait for session confirmation
   return new Promise<string>((resolve, reject) => {
@@ -360,18 +369,17 @@ const triggerResize = async (
 
   // -------------------------------------------------------------------
   // 💸 Yellow Protocolの真の力：Application Session内での瞬時送信
-  // 注意: Application Sessionは現在開発中の機能です
   // -------------------------------------------------------------------
-  console.log("\n💡 Yellow Protocol's State Channel Feature");
-  console.log("  ⚠️  Application Session is under development");
-  console.log("  Skipping payment demo for now...");
-  console.log("  The channel is ready for instant off-chain transfers once implemented!");
-  
-  // Application Sessionは現在不安定なためスキップ
-  /*
+  console.log("\n💡 Demonstrating Yellow Protocol's Instant Payments");
   const recipientAddress = "0x1295BDc0C102EB105dC0198fdC193588fe66A1e4";
 
   try {
+    console.log("\n🛠️  Debug Info:");
+    console.log(`  Channel ID: ${channelId}`);
+    console.log(`  Token Address: ${token}`);
+    console.log(`  Sender: ${account.address}`);
+    console.log(`  Recipient: ${recipientAddress}`);
+    
     // Step 1: Create Application Session
     appSessionId = await createPaymentSession(
       recipientAddress,
@@ -388,10 +396,11 @@ const triggerResize = async (
     console.log("   - Zero gas fees");
     console.log("   - Can send unlimited payments in this session");
   } catch (transferError: any) {
-    console.warn("⚠ Payment demo error:", transferError.message);
-    console.log("  Proceeding to channel close...");
+    console.error("\n❌ Payment demo failed:");
+    console.error("  Error:", transferError.message);
+    console.error("  Stack:", transferError.stack);
+    console.log("\n  Proceeding to channel close...");
   }
-  */
 
   // Wait for server to sync state
   await new Promise((r) => setTimeout(r, 2000));
