@@ -636,3 +636,4 @@ const closeMsg = await createCloseChannelMessage(
 Yellow Protocolの最新のAPI仕様については、公式ドキュメントをご確認ください：
 - [Yellow Protocol Docs](https://docs.yellow.org)
 - [ERC7824 Specification](https://eips.ethereum.org/EIPS/eip-7824)
+- [Quickstart](https://docs.yellow.org/docs/build/quick-start/)
