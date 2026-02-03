@@ -681,9 +681,13 @@ ws.onmessage = async (event) => {
       );
       try {
         // トークンを引き出す
+        // ガスリミットを明示的に設定してreentrancy sentryに十分なガスを確保
         const withdrawalTx = await client.withdrawal(
           token as `0x${string}`,
           withdrawableBalance,
+          {
+            gas: 500_000n, // ガスリミットを明示的に設定
+          }
         );
         console.log("✓ Funds withdrawn successfully:", withdrawalTx);
       } catch (withdrawError: any) {
